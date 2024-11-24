@@ -19,11 +19,12 @@ struct Vocabulary {
 
 // Store this on the heap as it's a large struct
 @[heap]
-struct App {
-mut:
-	gg gg.Context
+@[minify]
+pub struct App {
 pub mut:
-	db &sqlite.DB
+	site_to_render string
+	gg             gg.Context
+	db             sqlite.DB
 }
 
 fn main() {
@@ -44,16 +45,16 @@ fn main() {
 		println(term.green('Database "lexiv.db" closed'))
 	}
 
-	mut app := &App{
-		db: &db
-	}
+	mut app := App{}
+	app.db = db
+	app.site_to_render = 'home'
 	app.gg = gg.new_context(
 		window_title: window_title
-		width:    window_width
-		height:   window_height
-		bg_color: gx.gray
-		event_fn: catch_event
-		frame_fn: frame
+		width:        window_width
+		height:       window_height
+		bg_color:     gx.gray
+		event_fn:     app.catch_event
+		frame_fn:     frame
 	)
 
 	sql app.db {
@@ -67,12 +68,12 @@ fn main() {
 	app.gg.run()
 }
 
-fn catch_event(event &gg.Event, mut app App) {
+fn (mut app App) catch_event(event &gg.Event, _ voidptr) {
 	match event.typ {
 		.key_up {
 			match event.key_code {
 				.enter {
-					println('Enter key pressed')
+					app.site_to_render = 'home'
 				}
 				else {}
 			}
@@ -81,9 +82,9 @@ fn catch_event(event &gg.Event, mut app App) {
 			clicke_add, click_learn := check_if_mouse_on_text(event)
 
 			if clicke_add {
-				println('Add a word clicked')
+				app.site_to_render = 'add_word'
 			} else if click_learn {
-				println('Review words clicked')
+				app.site_to_render = 'learn_word'
 			}
 		}
 		else {}
@@ -91,30 +92,30 @@ fn catch_event(event &gg.Event, mut app App) {
 }
 
 fn frame(mut app App) {
-	app.gg.begin()
 	app.draw_canvas()
-	app.gg.end()
 }
 
 fn (mut app App) draw_canvas() {
-	add_color, mut learn_color := gx.black, gx.black
-
-	app.gg.draw_text(370, 230, 'Lexiv', gx.TextCfg{
-		size:  60
-		color: gx.blue
-	})
-
-	app.gg.draw_text(170, 400, 'Add words', gx.TextCfg{
-		size:  30
-		color: add_color
-		bold:  true
-	})
-
-	app.gg.draw_text(570, 400, 'Learn words', gx.TextCfg{
-		size:  30
-		color: learn_color
-		bold:  true
-	})
+	app.gg.begin()
+	match app.site_to_render.str() {
+		'home' {
+			app.draw_home()
+		}
+		'add_word' {
+			app.draw_add_word()
+		}
+		'learn_word' {
+			app.draw_learn_word()
+		}
+		else {
+			app.gg.draw_rect_filled(0, 0, window_width, window_height, gx.white)
+			app.gg.draw_text(370, 230, '404', gx.TextCfg{
+				size:  60
+				color: gx.red
+			})
+		}
+	}
+	app.gg.end()
 }
 
 // I don't know if there is a way to add event listeners in gx
